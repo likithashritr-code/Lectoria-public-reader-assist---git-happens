@@ -1,0 +1,10 @@
+{
+  "description": "Scan or paste course reading lists to check library availability, request books, view due dates, and get alternative recommendations in one seamless app.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
