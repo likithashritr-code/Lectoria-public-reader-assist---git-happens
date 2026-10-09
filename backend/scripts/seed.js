@@ -44,6 +44,10 @@ const readerPlans = [
       { book: 25, daysAgo: 3, dueInDays: 10 },
     ],
   },
+  {
+    name: "Taniska",
+    loans: [],
+  },
 ];
 
 try {
