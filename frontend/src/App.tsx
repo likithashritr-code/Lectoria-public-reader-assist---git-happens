@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { api, getReaderId, setReaderId, type BookDto, type CalendarEventDto, type NotificationDto, type PlanItemDto, type ReaderDto } from "./lib/api";
+import { CommunityDetail, CommunityPage } from "./Community";
 
 type Book = {
   bookId: string;
@@ -252,7 +254,7 @@ function BookCard({ book, rank, onRequest }: { book: Book; rank?: number; onRequ
         </div>
         <div className="book-actions">
           <div>{book.borrowedByYou && <span className="you-tag"><Icon name="check" size={14} /> You borrowed this</span>}</div>
-          {!book.borrowedByYou && book.copiesAvailable === 0 && <button className={`btn ${book.requested ? "requested" : "primary"}`} disabled={book.requested} onClick={() => onRequest(book.bookId)}>
+          {book.copiesAvailable === 0 && <button className={`btn ${book.requested ? "requested" : "primary"}`} disabled={book.requested} onClick={() => onRequest(book.bookId)}>
             {book.requested ? <><Icon name="check" size={16} /> Requested</> : "Request"}
           </button>}
         </div>
@@ -443,12 +445,14 @@ function UploadModal({ onClose, onToast }: { onClose: () => void; onToast: (s: s
 }
 
 export default function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [authenticated, setAuthenticated] = useState(false);
   const [reader, setReader] = useState<Reader | null>(null);
   const [readerRecords, setReaderRecords] = useState<ReaderDto[]>([]);
   const [userName, setUserName] = useState("");
   const [phone, setPhone] = useState("");
-  const [page, setPage] = useState<"shelf" | "calendar" | "settings">("shelf");
+  const [page, setPage] = useState<"shelf" | "calendar" | "settings" | "community">("shelf");
   const [books, setBooks] = useState<Book[]>([]);
   const [topBooks, setTopBooks] = useState<Book[]>([]);
   const [searchResults, setSearchResults] = useState<Book[]>([]);
@@ -468,7 +472,15 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [apiError, setApiError] = useState("");
   const filtered = searchResults;
+  const communityMatch = location.pathname.match(/^\/community\/([^/]+)$/);
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(""), 3200); return () => clearTimeout(timer); }, [toast]);
+
+  useEffect(() => {
+    if (location.pathname.startsWith("/community")) setPage("community");
+    else if (location.pathname === "/calendar") setPage("calendar");
+    else if (location.pathname === "/settings") setPage("settings");
+    else setPage("shelf");
+  }, [location.pathname]);
 
   useEffect(() => {
     let active = true;
@@ -597,6 +609,11 @@ export default function App() {
     }
   }
 
+  function navigateToPage(nextPage: "shelf" | "calendar" | "settings" | "community") {
+    setPage(nextPage);
+    navigate(nextPage === "shelf" ? "/" : `/${nextPage}`);
+  }
+
   useEffect(() => {
     if (!authenticated || !reader || !avatarMissing || avatarAttemptedFor.current.has(reader.id)) return;
     avatarAttemptedFor.current.add(reader.id);
@@ -613,14 +630,14 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <button className="brand" onClick={() => { setPage("shelf"); setSearched(false); }}><span><Icon name="book" /></span><div>LECTORIA<small>Read · Connect · Belong</small></div></button>
+        <button className="brand" onClick={() => { setSearched(false); navigateToPage("shelf"); }}><span><Icon name="book" /></span><div>LECTORIA<small>Read · Connect · Belong</small></div></button>
         <nav>
-          <button className={page === "shelf" ? "active" : ""} onClick={() => setPage("shelf")}>Top books</button>
-          <button onClick={() => { setPage("shelf"); window.setTimeout(() => document.getElementById("community")?.scrollIntoView({ behavior: "smooth" }), 50); }}>Community</button>
-          <button className={page === "calendar" ? "active" : ""} onClick={() => setPage("calendar")}>Calendar</button>
+          <button className={page === "shelf" ? "active" : ""} onClick={() => navigateToPage("shelf")}>Top books</button>
+          <button className={page === "community" ? "active" : ""} onClick={() => navigateToPage("community")}>Community</button>
+          <button className={page === "calendar" ? "active" : ""} onClick={() => navigateToPage("calendar")}>Calendar</button>
         </nav>
         <div className="header-actions">
-          <button className="header-icon" aria-label="Calendar" onClick={() => setPage("calendar")}><Icon name="calendar" /></button>
+          <button className="header-icon" aria-label="Calendar" onClick={() => navigateToPage("calendar")}><Icon name="calendar" /></button>
           <div className="popover-wrap">
             <button className="header-icon" aria-label="Notifications" onClick={() => setNotificationsOpen(v => !v)}><Icon name="bell" />{unreadCount > 0 && <b>{unreadCount}</b>}</button>
             {notificationsOpen && <div className="popover notifications"><div><h3>Notifications</h3><button onClick={() => void markNotificationsRead()}>Mark all read</button></div>
@@ -629,13 +646,17 @@ export default function App() {
           </div>
           <div className="reader-wrap">
             <button className="reader-button" onClick={() => setReaderOpen(v => !v)}><Avatar reader={reader} compact /><span><small>Welcome,</small><strong>{reader.name}</strong></span><Icon name="chevron" size={16} /></button>
-            {readerOpen && <div className="popover profile-menu"><div className="profile-summary"><Avatar reader={reader} compact /><span><strong>{reader.name}</strong><small>{reader.label}</small></span></div><button onClick={() => { setPage("shelf"); setReaderOpen(false); }}><Icon name="home" size={18} /><span><strong>Home page</strong><small>Return to your library</small></span></button><button onClick={() => { setPage("settings"); setReaderOpen(false); }}><Icon name="settings" size={18} /><span><strong>Settings</strong><small>Profile and notifications</small></span></button><button className="profile-logout" onClick={() => { setReaderId(null); setReader(null); setAuthenticated(false); setReaderOpen(false); setWelcomeOpen(true); }}><Icon name="logout" size={18} /><span><strong>Log out</strong></span></button></div>}
+            {readerOpen && <div className="popover profile-menu"><div className="profile-summary"><Avatar reader={reader} compact /><span><strong>{reader.name}</strong><small>{reader.label}</small></span></div><button onClick={() => { navigateToPage("shelf"); setReaderOpen(false); }}><Icon name="home" size={18} /><span><strong>Home page</strong><small>Return to your library</small></span></button><button onClick={() => { navigateToPage("settings"); setReaderOpen(false); }}><Icon name="settings" size={18} /><span><strong>Settings</strong><small>Profile and notifications</small></span></button><button className="profile-logout" onClick={() => { setReaderId(null); setReader(null); setAuthenticated(false); setReaderOpen(false); setWelcomeOpen(true); }}><Icon name="logout" size={18} /><span><strong>Log out</strong></span></button></div>}
           </div>
         </div>
       </header>
 
       {apiError && <div className="content"><p className="login-error">{apiError}</p></div>}
-      {page === "calendar" ? <CalendarPage events={calendarEvents} /> : page === "settings" ? <SettingsPage reader={reader} name={userName} phone={phone} onSave={(name, nextPhone) => { setUserName(name); setPhone(nextPhone); setToast("Settings updated for this session."); }} /> : (
+      {communityMatch
+        ? <CommunityDetail id={decodeURIComponent(communityMatch[1])} reader={reader} readers={readerRecords.map(readerFromDto)} />
+        : page === "community"
+        ? <CommunityPage reader={reader} readers={readerRecords.map(readerFromDto)} />
+        : page === "calendar" ? <CalendarPage events={calendarEvents} /> : page === "settings" ? <SettingsPage reader={reader} name={userName} phone={phone} onSave={(name, nextPhone) => { setUserName(name); setPhone(nextPhone); setToast("Settings updated for this session."); }} /> : (
         <main>
           <section className="hero">
             <div className="hero-shape one" /><div className="hero-shape two" />
@@ -662,7 +683,7 @@ export default function App() {
                 <div className="book-grid top-books">{topBooks.slice(0, 5).map((book, i) => <BookCard key={book.bookId} book={book} rank={i + 1} onRequest={requestBook} />)}</div>
               </section>
               <section className="section-block community-section" id="community">
-                <div className="section-heading"><div><p className="eyebrow">Read together</p><h2>Community</h2><p>Discuss books, exchange ideas, and see what other readers are saying.</p></div><button className="btn primary"><Icon name="plus" size={16} /> Start a discussion</button></div>
+                <div className="section-heading"><div><p className="eyebrow">Read together</p><h2>Community</h2><p>Discuss books, exchange ideas, and see what other readers are saying.</p></div><button className="btn primary" onClick={() => navigateToPage("community")}><Icon name="plus" size={16} /> Open community</button></div>
                 <div className="community-grid">
                   <article className="discussion featured-discussion"><div className="discussion-cover">{topBooks[0] && <BookCover book={topBooks[0]} />}</div><div><span className="topic-label">Featured discussion</span><h3>Can one book really change environmental policy?</h3><p>Readers are revisiting books on this shelf and discussing evidence, storytelling, and public action.</p><div className="discussion-meta"><span className="avatar-stack">{readerRecords.map(record => <Avatar key={record.id} reader={readerFromDto(record)} compact />)}</span><span><strong>{readerRecords.length} readers</strong></span><button>Join discussion <Icon name="arrow" size={15} /></button></div></div></article>
                   <article className="discussion"><div className="discussion-top"><span className="community-icon"><Icon name="sparkles" /></span><span className="topic-label">Question of the week</span></div><h3>Which book made you see nature differently?</h3><p>Share one passage or idea that stayed with you long after you closed the cover.</p><div className="discussion-meta"><span><strong>16 readers</strong> · 21 replies</span><button>Read replies <Icon name="chevron" size={15} /></button></div></article>
